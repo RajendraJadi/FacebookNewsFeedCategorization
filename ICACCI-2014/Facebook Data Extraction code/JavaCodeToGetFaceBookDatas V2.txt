@@ -1,0 +1,165 @@
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.List;
+
+import com.restfb.Connection;
+import com.restfb.DefaultFacebookClient;
+import com.restfb.FacebookClient;
+import com.restfb.json.JsonObject;
+import com.restfb.types.Comment;
+import com.restfb.types.Comment.Comments;
+import com.restfb.types.Insight;
+import com.restfb.types.Page;
+import com.restfb.types.Post;
+import com.restfb.types.User;
+
+
+public class KVJ_FB2 {
+	public static DB db = new DB();
+	static FacebookClient facebookClient = new DefaultFacebookClient("Insert Access Token");
+	
+	public static void main(String[] args) throws SQLException {
+		//Walmart Page ID=159616034235, Tesco Page ID=112463368812803
+	
+		FaceBookExtract("112463368812803", "Tesco", 10);
+		
+		
+	}
+	
+	
+	private static void ins_Post(List<JsonObject> post , String Company_Name) throws SQLException {
+		
+		for (int i=0; i<post.size(); i++){
+			
+			String sql_ins_fb_post = "INSERT INTO  Crawler.FB_POST " + "(post_id , viewer_id , app_id , source_id , updated_time , created_time , filter_key , attribution , actor_id , target_id , message , app_data , action_links , attachment , comments , likes , privacy ,share_info , company) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);" ;
+			PreparedStatement stmt_ins_fb_post = db.conn.prepareStatement(sql_ins_fb_post, Statement.RETURN_GENERATED_KEYS);
+			
+	//Code to insert data into MySQL Table
+			
+			
+			stmt_ins_fb_post.setString(1,post.get(i).get("post_id").toString());
+			stmt_ins_fb_post.setString(2,post.get(i).get("viewer_id").toString());
+			stmt_ins_fb_post.setString(3,post.get(i).get("app_id").toString());
+			stmt_ins_fb_post.setString(4,post.get(i).get("source_id").toString());
+			stmt_ins_fb_post.setString(5,post.get(i).get("updated_time").toString());
+			stmt_ins_fb_post.setString(6,post.get(i).get("created_time").toString());
+			stmt_ins_fb_post.setString(7,post.get(i).get("filter_key").toString());
+			stmt_ins_fb_post.setString(8,post.get(i).get("attribution").toString());
+			stmt_ins_fb_post.setString(9,post.get(i).get("actor_id").toString());
+			stmt_ins_fb_post.setString(10,post.get(i).get("target_id").toString());
+			stmt_ins_fb_post.setString(11,post.get(i).get("message").toString());
+			stmt_ins_fb_post.setString(12,post.get(i).get("app_data").toString()); 
+			stmt_ins_fb_post.setString(13,post.get(i).get("action_links").toString());
+			stmt_ins_fb_post.setString(14,post.get(i).get("attachment").toString());
+		
+			
+			String count="0";
+			String likes="0";
+			
+			JsonObject countJSon=new JsonObject(post.get(i).get("comments").toString());
+			if(countJSon.toString().contains("\"count\"")) {count=countJSon.getString("count").toString();}
+			
+			stmt_ins_fb_post.setString(15,count);
+			
+			JsonObject likesJSon=new JsonObject(post.get(i).get("likes").toString());
+			if(likesJSon.toString().contains("\"count\"")) {likes=likesJSon.get("count").toString();}
+			
+			System.out.println(post.get(i).get("likes").toString());
+			
+			stmt_ins_fb_post.setString(16,likes);
+			
+			
+			
+			stmt_ins_fb_post.setString(17,post.get(i).get("privacy").toString());
+			stmt_ins_fb_post.setString(18,post.get(i).get("share_info").toString());
+			stmt_ins_fb_post.setString(19,Company_Name);
+			
+			
+			stmt_ins_fb_post.execute();
+	
+			
+			String query_Commn = "SELECT xid , post_id , fromid , time , text , id , username , reply_xid ,likes   FROM comment WHERE post_id=' " + post.get(i).getString("post_id")+"'  ";
+			List<JsonObject> commn = facebookClient.executeFqlQuery(query_Commn, JsonObject.class);
+	
+			for (int j=0; j<commn.size(); j++){
+				//Code to insert data into MySQL Table
+				String sql_ins_fb_commn = "INSERT INTO  Crawler.FB_COMMN " + "(xid , post_id , fromid , time , Commn_text , id , username , reply_xid , likes , company) VALUES (?,?,?,?,?,?,?,?,?,?);" ;
+				PreparedStatement stmt_ins_fb_commn = db.conn.prepareStatement(sql_ins_fb_commn, Statement.RETURN_GENERATED_KEYS);
+				
+		
+				
+				
+				stmt_ins_fb_commn.setString(1,commn.get(j).get("xid").toString());
+				stmt_ins_fb_commn.setString(2,commn.get(j).get("post_id").toString());
+				stmt_ins_fb_commn.setString(3,commn.get(j).get("fromid").toString());
+				stmt_ins_fb_commn.setString(4,commn.get(j).get("time").toString());
+				stmt_ins_fb_commn.setString(5,commn.get(j).get("text").toString());
+				stmt_ins_fb_commn.setString(6,commn.get(j).get("id").toString());
+				stmt_ins_fb_commn.setString(7,commn.get(j).get("username").toString());
+				stmt_ins_fb_commn.setString(8,commn.get(j).get("reply_xid").toString());
+				stmt_ins_fb_commn.setString(9,commn.get(j).get("likes").toString());
+				stmt_ins_fb_commn.setString(10,Company_Name);
+				
+				stmt_ins_fb_commn.execute();
+			
+		
+			
+			}
+		
+	
+		
+		
+	}
+
+
+		
+		
+	}
+	
+
+	private static void FaceBookExtract(String Page_ID, String Company_Name, int k) throws SQLException {
+		
+		
+	
+	String SQL1= "Select max(created_time) from Crawler.fb_post;";
+		
+		ResultSet rs1 = db.runSql(SQL1); //System.out.println("asdasdasd" + rs.getInt("max(RecordID)");
+		rs1.first();
+		String max_CD=rs1.getString("max(created_time)");
+		System.out.println("Max_Cd=="+max_CD);
+		if(max_CD== null){
+			System.out.println("Max_Cd is null");
+			
+			String fql1 = "SELECT post_id , viewer_id , app_id , source_id , updated_time , created_time , filter_key , attribution , actor_id , target_id , message , app_data , action_links , attachment , comments , likes , privacy ,share_info FROM stream WHERE source_id='"+Page_ID+"' LIMIT 1000 ";
+			List<JsonObject> post = facebookClient.executeFqlQuery(fql1, JsonObject.class);
+			ins_Post(post , Company_Name);
+		}
+		
+		else {
+			
+			System.out.println("Max_Cd is not null---"+max_CD);
+			String fql1 = "SELECT post_id , viewer_id , app_id , source_id , updated_time , created_time , filter_key , attribution , actor_id , target_id , message , app_data , action_links , attachment , comments , likes , privacy ,share_info FROM stream WHERE source_id='"+Page_ID+"' and created_time >'"+max_CD+"' LIMIT 1000 ";
+			List<JsonObject> post = facebookClient.executeFqlQuery(fql1, JsonObject.class);
+			ins_Post(post , Company_Name);	
+			
+		}
+		
+		while(k>0){
+		k--;
+		String SQL2= "Select min(created_time) from Crawler.fb_post;";
+		ResultSet rs2 = db.runSql(SQL2); //System.out.println("asdasdasd" + rs.getInt("max(RecordID)");
+		rs2.first();
+		String min_CD=rs2.getString("min(created_time)");
+		System.out.println("Min_Cd=="+min_CD);
+		String fql2 = "SELECT post_id , viewer_id , app_id , source_id , updated_time , created_time , filter_key , attribution , actor_id , target_id , message , app_data , action_links , attachment , comments , likes , privacy ,share_info FROM stream WHERE source_id='"+Page_ID+"' and created_time <'"+min_CD+"' LIMIT 1000 ";
+		List<JsonObject> post = facebookClient.executeFqlQuery(fql2, JsonObject.class);
+		ins_Post(post , Company_Name);
+				
+		
+		}
+
+	}
+	
+}
